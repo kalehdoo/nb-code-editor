@@ -1,0 +1,11 @@
+[package]
+name = "editor-core"
+version = "0.1.0"
+edition = "2021"
+description = "Unicode-aware text editing and YAML/SQL validation"
+license = "MIT"
+
+[dependencies]
+serde = "1"
+serde_yaml_ng = "0.10"
+sqlparser = "0.59"

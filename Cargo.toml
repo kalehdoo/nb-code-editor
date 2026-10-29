@@ -1,0 +1,3 @@
+[workspace]
+members = ["editor-core", "editor-leptos", "examples/demo", "examples/server"]
+resolver = "2"
