@@ -75,8 +75,9 @@ Use `--surface`, `--text`, `--border`, and `--text-muted` CSS custom properties 
 ## Keyboard and browser behavior
 
 - Native selection, clipboard, cursor movement, and undo/redo remain browser-owned.
+- **Ctrl+S / Cmd+S** saves the focused editor through the same validation and backend callback as the Save button. The browser's Save Page action is suppressed inside the textarea, even when saving is unavailable. Unchanged, read-only, pending-save, and held-key repeat events do not trigger saves. Shift/Alt variants and IME composition are left untouched.
 - Tab inserts spaces; Shift+Tab removes leading indentation; selected blocks affect whole lines. Enter preserves the indentation prefix before the cursor.
-- **Escape then Tab** leaves the editor, avoiding a keyboard focus trap. Read-only editors retain native Tab navigation. IME composition and Ctrl/Meta/Alt shortcuts are not intercepted.
+- **Escape then Tab** leaves the editor, avoiding a keyboard focus trap. Read-only editors retain native Tab navigation. IME composition and other Ctrl/Meta/Alt shortcuts are not intercepted.
 - Custom edits use the browser's deprecated but widely supported `execCommand` editing transaction to preserve native undo. `setRangeText`/assigning `.value` would discard or bypass undo history. If the browser rejects the command, the original selection and native key behavior are retained; indentation is not guaranteed on unsupported engines. Browsers may coalesce consecutive edits into one undo transaction.
 - Text is not controlled/reassigned on each keystroke. One input pass updates counts/dirty state; line-number text changes only when line count changes. Parsing occurs only on Validate/Save. Very large documents still have O(n) counting and validation costs; this is not a virtualized editor, and parsing currently runs synchronously in the browser.
 

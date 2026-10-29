@@ -62,7 +62,7 @@ pub fn CodeEditor(
         }
     });
     let save = Callback::new(move |()| {
-        if read_only || saving.get_untracked() {
+        if read_only || saving.get_untracked() || !dirty.get_untracked() {
             return;
         }
         check.run(());
@@ -96,11 +96,17 @@ pub fn CodeEditor(
             <EditorToolbar dirty read_only saving on_save=save on_validate=check />
             <div class="nb-body" style:height=height>
                 <LineNumbers lines scroll />
-                <textarea node_ref=area aria-label=file_name aria-description="Tab indents; Shift+Tab outdents. Press Escape then Tab to move focus out of the editor." readonly=read_only spellcheck="false" autocapitalize="off" autocomplete="off" wrap="off"
+                <textarea node_ref=area aria-label=file_name aria-description="Ctrl+S or Command+S saves. Tab indents; Shift+Tab outdents. Press Escape then Tab to move focus out of the editor." readonly=read_only spellcheck="false" autocapitalize="off" autocomplete="off" wrap="off"
                     on:input=move |_| { if let Some(el) = area.get() { sync.run(el.value()); } }
                     on:scroll=move |_| { if let Some(el) = area.get() { set_scroll.set(el.scroll_top()); } }
                     on:keydown=move |event: web_sys::KeyboardEvent| {
-                        if read_only || event.is_composing() || event.ctrl_key() || event.meta_key() || event.alt_key() { return; }
+                        if event.is_composing() { return; }
+                        if (event.ctrl_key() || event.meta_key()) && !event.alt_key() && !event.shift_key() && event.key().eq_ignore_ascii_case("s") {
+                            event.prevent_default();
+                            if !event.repeat() { save.run(()); }
+                            return;
+                        }
+                        if read_only || event.ctrl_key() || event.meta_key() || event.alt_key() { return; }
                         if event.key() == "Escape" { escape_tab.set_value(true); return; }
                                                 if event.key() == "Tab" && escape_tab.get_value() { escape_tab.set_value(false); return; }
                                                 escape_tab.set_value(false);

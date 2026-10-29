@@ -121,6 +121,49 @@ test('editing during save remains dirty', async ({ page }) => {
   await expect(editor.locator('.nb-toolbar')).toContainText('Unsaved changes');
   await expect(area).toHaveValue('enabled: false');
 });
+test('save shortcut saves only the focused editor', async ({ page }) => {
+  const requests = [];
+  await page.route('**/api/save', route => { requests.push(route.request().postDataJSON()); return route.fulfill({ status: 200, body: 'Saved' }); });
+  const area = yaml(page);
+  await area.fill('enabled: false');
+  await page.getByRole('textbox', { name: 'query.sql', exact: true }).fill('SELECT 42;');
+  await area.press('ControlOrMeta+s');
+  await expect(page.locator('.nb-editor').first().locator('.nb-toolbar')).toContainText('Saved');
+  expect(requests).toHaveLength(1);
+  expect(requests[0]).toMatchObject({ file_name: 'config.yaml', content: 'enabled: false' });
+  await expect(page.locator('.nb-editor').nth(1).locator('.nb-toolbar')).toContainText('Unsaved changes');
+});
+for (const modifier of ['ctrlKey', 'metaKey']) {
+  test(`${modifier} save shortcut prevents browser action and respects save guards`, async ({ page }) => {
+    let requests = 0;
+    let release;
+    const pending = new Promise(resolve => { release = resolve; });
+    await page.route('**/api/save', async route => { requests++; await pending; await route.fulfill({ status: 200, body: 'Saved' }); });
+    const area = yaml(page);
+    const editor = page.locator('.nb-editor').first();
+    const shortcut = (target, extra = {}) => target.evaluate((el, options) => !el.dispatchEvent(new KeyboardEvent('keydown', { key: 's', bubbles: true, cancelable: true, ...options })), { [modifier]: true, ...extra });
+    expect(await shortcut(area)).toBe(true); // unchanged
+    const reference = page.getByRole('textbox', { name: 'reference.yaml', exact: true });
+    expect(await shortcut(reference)).toBe(true); // read-only
+    await area.fill('bad: [');
+    expect(await shortcut(area)).toBe(true);
+    await expect(editor.locator('.nb-validation').first()).toContainText('Line');
+    expect(requests).toBe(0);
+    await area.fill('enabled: true');
+    expect(await shortcut(area, { shiftKey: true })).toBe(false);
+    expect(await shortcut(area, { altKey: true })).toBe(false);
+    expect(await shortcut(area, { isComposing: true })).toBe(false);
+    expect(await shortcut(area, { repeat: true })).toBe(true);
+    expect(requests).toBe(0);
+    expect(await shortcut(area)).toBe(true);
+    await expect.poll(() => requests).toBe(1);
+    expect(await shortcut(area)).toBe(true); // pending
+    release();
+    await expect(editor.locator('.nb-toolbar')).toContainText('Saved');
+    expect(await shortcut(area)).toBe(true); // unchanged after save
+    expect(requests).toBe(1);
+  });
+}
 test('SQL syntax validation', async ({ page }) => {
   await page.getByRole('textbox', { name: 'query.sql', exact: true }).fill('SELECT FROM');
   const editor = page.locator('.nb-editor').nth(1);
